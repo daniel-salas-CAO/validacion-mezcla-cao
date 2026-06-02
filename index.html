@@ -235,8 +235,9 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
-      document.getElementById('fecha').valueAsDate = now;
-      fechaActiva = obtenerFechaHoy();
+      const fechaOperativa = obtenerFechaOperativa();
+      document.getElementById('fecha').value = fechaOperativa;
+      fechaActiva = fechaOperativa;
       document.getElementById('fechaGeneracion').textContent = now.toLocaleString('es-MX');
       cargarRecetasIniciales();
       llenarSelectoresReceta();
@@ -430,7 +431,20 @@
       return datos;
     }
     function hayDatosCapturados() { const datos = recopilarDatos(); return datos.registros.some(r => r.lote || r.pesos.some(p => p) || r.check || r.realiza || r.verifica || r.valida); }
-    function guardarDatosAutomatico() { if (!currentRecipe) return; const datos = recopilarDatos(); if (datos.registros.length > 0 && datos.registros.some(r => r.lote || r.pesos.some(p => p) || r.check)) { localStorage.setItem(storageKey(currentRecipeId, datos.fecha), JSON.stringify(datos)); limpiarDatosAntiguos(); mostrarIndicadorGuardado(); } }
+    function tieneContenidoGuardable(datos) { return datos && datos.registros && datos.registros.length > 0 && datos.registros.some(r => r.lote || r.pesos.some(p => p) || r.check || r.realiza || r.verifica || r.valida); }
+    function guardarDatosEnFecha(fechaDestino) {
+      if (!currentRecipe || !fechaDestino) return false;
+      const datos = recopilarDatos();
+      datos.fecha = fechaDestino;
+      if (tieneContenidoGuardable(datos)) {
+        localStorage.setItem(storageKey(currentRecipeId, fechaDestino), JSON.stringify(datos));
+        limpiarDatosAntiguos();
+        mostrarIndicadorGuardado();
+        return true;
+      }
+      return false;
+    }
+    function guardarDatosAutomatico() { if (!currentRecipe) return; guardarDatosEnFecha(document.getElementById('fecha').value); }
     function guardarDatosManual() { guardarDatosAutomatico(); alert('💾 Datos guardados correctamente para la fecha: ' + document.getElementById('fecha').value); }
     function cargarDatosGuardados(recipeId, fecha) { const raw = localStorage.getItem(storageKey(recipeId, fecha)); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
 
@@ -441,9 +455,45 @@
     }
     function mostrarIndicadorGuardado() { const indicator = document.getElementById('savedIndicator'); indicator.style.display = 'block'; setTimeout(() => indicator.style.display = 'none', 1800); }
     function iniciarAutoGuardado() { if (autoSaveInterval) clearInterval(autoSaveInterval); autoSaveInterval = setInterval(guardarDatosAutomatico, 30000); }
-    function obtenerFechaHoy() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
-    function iniciarCambioAutomaticoDia() { if (cambioDiaInterval) clearInterval(cambioDiaInterval); fechaActiva = document.getElementById('fecha').value || obtenerFechaHoy(); cambioDiaInterval = setInterval(() => { const hoy = obtenerFechaHoy(); if (hoy !== fechaActiva) { guardarDatosAutomatico(); fechaActiva = hoy; document.getElementById('fecha').value = hoy; aplicarReceta(currentRecipe, []); alert('📅 Se detectó cambio de día. Se guardó el día anterior y se abrió una tabla limpia para hoy.'); } }, 30000); }
-    function cambioFechaManual() { if (!currentRecipe) return; fechaActiva = document.getElementById('fecha').value; const datos = cargarDatosGuardados(currentRecipeId, fechaActiva); if (datos) aplicarReceta(currentRecipe, datos.registros); else aplicarReceta(currentRecipe, []); }
+    function formatearFechaISO(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+    function obtenerFechaHoy() { return formatearFechaISO(new Date()); }
+    function obtenerFechaOperativa() {
+      const d = new Date();
+      // Corte operativo a las 4:00 a. m.:
+      // entre 00:00 y 03:59 se sigue considerando el día anterior.
+      if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+      return formatearFechaISO(d);
+    }
+    function iniciarCambioAutomaticoDia() {
+      if (cambioDiaInterval) clearInterval(cambioDiaInterval);
+      fechaActiva = document.getElementById('fecha').value || obtenerFechaOperativa();
+      cambioDiaInterval = setInterval(() => {
+        const fechaOperativa = obtenerFechaOperativa();
+        if (fechaOperativa !== fechaActiva) {
+          guardarDatosEnFecha(fechaActiva);
+          fechaActiva = fechaOperativa;
+          document.getElementById('fecha').value = fechaOperativa;
+          aplicarReceta(currentRecipe, []);
+          alert('📅 Se detectó el corte operativo de las 4:00 a. m. Se guardó el día anterior y se abrió una tabla limpia para el nuevo día.');
+        }
+      }, 30000);
+    }
+    function cambioFechaManual() {
+      if (!currentRecipe) return;
+      const nuevaFecha = document.getElementById('fecha').value;
+      const fechaAnterior = fechaActiva || nuevaFecha;
+
+      // Antes de cargar otra fecha, se guarda lo que esté capturado en la fecha anterior.
+      // Esto evita perder datos cuando el usuario cambia manualmente el calendario.
+      if (fechaAnterior && nuevaFecha !== fechaAnterior) {
+        guardarDatosEnFecha(fechaAnterior);
+      }
+
+      fechaActiva = nuevaFecha;
+      const datos = cargarDatosGuardados(currentRecipeId, nuevaFecha);
+      if (datos) aplicarReceta(currentRecipe, datos);
+      else aplicarReceta(currentRecipe, []);
+    }
 
     function mostrarHistorial() {
       const content = document.getElementById('historialContent'); content.innerHTML = '';
@@ -454,7 +504,7 @@
       else reportes.forEach(rep => { const div = document.createElement('div'); div.className='historial-item'; const conformes=rep.registros.filter(r=>r.check==='✓').length; const total=rep.registros.filter(r=>r.check).length; div.innerHTML=`<h3>📅 ${escapeHtml(rep.fecha)} - ${escapeHtml(rep.recetaNombre || rep.recipeId)}</h3><p><strong>Registros:</strong> ${rep.registros.length} | <strong>Conformes:</strong> ${conformes}/${total}</p>`; div.onclick=()=>cargarReporteHistorico(rep); content.appendChild(div); });
       document.getElementById('historialModal').style.display = 'block';
     }
-    function cargarReporteHistorico(reporte) { const receta = obtenerRecetas().find(r => r.id === reporte.recipeId); if (!receta) { alert('La receta de este reporte ya no existe.'); return; } if (confirm(`¿Desea cargar el reporte del ${reporte.fecha}?`)) { currentRecipeId=receta.id; currentRecipe=receta; document.getElementById('fecha').value=reporte.fecha; document.getElementById('activeRecipeSelector').value=receta.id; aplicarReceta(receta, reporte.registros); cerrarHistorial(); } }
+    function cargarReporteHistorico(reporte) { const receta = obtenerRecetas().find(r => r.id === reporte.recipeId); if (!receta) { alert('La receta de este reporte ya no existe.'); return; } if (confirm(`¿Desea cargar el reporte del ${reporte.fecha}?`)) { currentRecipeId=receta.id; currentRecipe=receta; document.getElementById('fecha').value=reporte.fecha; document.getElementById('activeRecipeSelector').value=receta.id; aplicarReceta(receta, reporte); cerrarHistorial(); } }
     function limpiarFormulario() {
       if (!currentRecipe) return;
       const fecha = document.getElementById('fecha').value;
@@ -468,7 +518,200 @@
     }
     function resetHistorial() { if (confirm('⚠️ Esto borrará todos los reportes guardados, pero NO borrará las recetas. ¿Continuar?')) { const keys=[]; for (let i=0;i<localStorage.length;i++) { const key=localStorage.key(i); if (key && key.startsWith('mezcla_') && !key.startsWith('mezcla_recetas')) keys.push(key); } keys.forEach(k=>localStorage.removeItem(k)); aplicarReceta(currentRecipe, []); alert('♻️ Historial reseteado correctamente.'); } }
     function mostrarEstadisticas() { const datos=recopilarDatos(); const total=datos.registros.filter(r=>r.check).length; const conformes=datos.registros.filter(r=>r.check==='✓').length; const noConformes=datos.registros.filter(r=>r.check==='✗').length; if (total>0) { document.getElementById('statsContent').innerHTML=`<p><strong>Total evaluados:</strong> ${total}</p><p><strong>Conformes:</strong> ${conformes} (${((conformes/total)*100).toFixed(1)}%)</p><p><strong>No conformes:</strong> ${noConformes} (${((noConformes/total)*100).toFixed(1)}%)</p>`; document.getElementById('statsPanel').style.display='block'; } }
-    async function exportarPDFCompleto() { const { jsPDF } = window.jspdf; const boton=document.getElementById('exportarPDF'); boton.disabled=true; boton.textContent='⏳ Generando reporte...'; try { document.querySelectorAll('.input-row').forEach(calcularPorcentajesFila); const pdf=new jsPDF('l','mm','a4'); let y=18; pdf.setFontSize(17); pdf.text('REPORTE DE VERIFICACIÓN DE MEZCLA DIARIA', pdf.internal.pageSize.getWidth()/2, y, {align:'center'}); y+=10; pdf.setFontSize(11); pdf.text(`Fecha: ${document.getElementById('fecha').value}`,15,y); pdf.text(`Receta: ${currentRecipe.name}`,75,y); pdf.text(`PT: ${currentRecipe.pt}`,220,y); y+=8; const hidden=document.querySelectorAll('.control-panel,.delete-btn,.topbar'); hidden.forEach(el=>el.style.display='none'); const canvas=await html2canvas(document.getElementById('mezclaDiariaTable'),{scale:1.5,useCORS:true}); hidden.forEach(el=>el.style.display=''); const img=canvas.toDataURL('image/png'); const imgWidth=270; const imgHeight=(canvas.height*imgWidth)/canvas.width; pdf.addImage(img,'PNG',10,y,imgWidth,imgHeight); pdf.save(`reporte-${currentRecipe.pt}-${document.getElementById('fecha').value}.pdf`); } catch(err){ alert('❌ Error al generar PDF: '+err.message); } finally { boton.disabled=false; boton.textContent='📄 Descargar Reporte PDF'; } }
+    async function exportarPDFCompleto() {
+      const { jsPDF } = window.jspdf;
+      const boton = document.getElementById('exportarPDF');
+      boton.disabled = true;
+      boton.textContent = '⏳ Generando reporte...';
+
+      try {
+        document.querySelectorAll('.input-row').forEach(calcularPorcentajesFila);
+        mostrarEstadisticas();
+
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        let y = 18;
+
+        pdf.setFontSize(17);
+        pdf.text('REPORTE DE VERIFICACIÓN DE MEZCLA DIARIA', pdf.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 10;
+
+        pdf.setFontSize(11);
+        pdf.text(`Fecha operativa: ${document.getElementById('fecha').value}`, 15, y);
+        pdf.text(`Receta: ${currentRecipe.name}`, 75, y);
+        pdf.text(`PT: ${currentRecipe.pt}`, 220, y);
+        y += 8;
+
+        const hidden = document.querySelectorAll('.control-panel,.delete-btn,.topbar');
+        hidden.forEach(el => el.style.display = 'none');
+
+        const canvas = await html2canvas(document.getElementById('mezclaDiariaTable'), { scale: 1.5, useCORS: true });
+        hidden.forEach(el => el.style.display = '');
+
+        const img = canvas.toDataURL('image/png');
+        const imgWidth = 270;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(img, 'PNG', 10, y, imgWidth, imgHeight);
+
+        // Segunda hoja: gráficas y resumen estadístico.
+        const datos = recopilarDatos();
+        pdf.addPage();
+        y = 18;
+        pdf.setFontSize(16);
+        pdf.text('ANÁLISIS Y GRÁFICAS', pdf.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 12;
+
+        const chart1 = await crearGraficaPorcentajesPromedio(datos);
+        const chart2 = await crearGraficaConformidad(datos);
+        const chart3 = await crearGraficaPesosPorHora(datos);
+
+        if (chart1) pdf.addImage(chart1.toDataURL('image/png'), 'PNG', 15, y, 120, 70);
+        if (chart2) pdf.addImage(chart2.toDataURL('image/png'), 'PNG', 145, y, 120, 70);
+        y += 80;
+        if (chart3) pdf.addImage(chart3.toDataURL('image/png'), 'PNG', 15, y, 250, 85);
+
+        y += 95;
+        const stats = calcularEstadisticasReporte(datos);
+        pdf.setFontSize(14);
+        pdf.text('RESUMEN ESTADÍSTICO', 20, y);
+        y += 8;
+        pdf.setFontSize(10);
+
+        const lineas = [
+          `Total de registros evaluados: ${stats.totalEvaluados}`,
+          `Conformes (✓): ${stats.conformes} (${stats.porcentajeConformes}%)`,
+          `No conformes (✗): ${stats.noConformes} (${stats.porcentajeNoConformes}%)`,
+          ...stats.promedios.map(p => `Promedio ${p.nombre}: ${p.valor}%`)
+        ];
+
+        lineas.forEach(linea => {
+          pdf.text(linea, 20, y);
+          y += 6;
+        });
+
+        pdf.save(`reporte-${currentRecipe.pt}-${document.getElementById('fecha').value}.pdf`);
+      } catch (err) {
+        alert('❌ Error al generar PDF: ' + err.message);
+      } finally {
+        boton.disabled = false;
+        boton.textContent = '📄 Descargar Reporte PDF';
+      }
+    }
+
+    function esperarRenderGrafica() { return new Promise(resolve => setTimeout(resolve, 450)); }
+
+    function obtenerRegistrosConPesos(datos) {
+      return datos.registros.filter(r => Array.isArray(r.pesos) && r.pesos.some(p => parseFloat(p) > 0));
+    }
+
+    function calcularEstadisticasReporte(datos) {
+      const registrosValidos = obtenerRegistrosConPesos(datos);
+      const evaluados = datos.registros.filter(r => r.check);
+      const conformes = datos.registros.filter(r => r.check === '✓').length;
+      const noConformes = datos.registros.filter(r => r.check === '✗').length;
+      const cols = obtenerColumnasCalculo(currentRecipe);
+      const promedios = cols.map((col, idx) => {
+        let suma = 0;
+        registrosValidos.forEach(r => suma += parseFloat(r.porcentajes?.[idx] || 0));
+        return {
+          nombre: etiquetaColumna(col),
+          valor: registrosValidos.length ? (suma / registrosValidos.length).toFixed(2) : '0.00'
+        };
+      });
+
+      return {
+        totalEvaluados: evaluados.length,
+        conformes,
+        noConformes,
+        porcentajeConformes: evaluados.length ? ((conformes / evaluados.length) * 100).toFixed(1) : 0,
+        porcentajeNoConformes: evaluados.length ? ((noConformes / evaluados.length) * 100).toFixed(1) : 0,
+        promedios
+      };
+    }
+
+    async function crearGraficaPorcentajesPromedio(datos) {
+      const registrosValidos = obtenerRegistrosConPesos(datos);
+      if (!registrosValidos.length) return null;
+
+      const cols = obtenerColumnasCalculo(currentRecipe);
+      const labels = cols.map(etiquetaColumna);
+      const valores = cols.map((_, idx) => {
+        let suma = 0;
+        registrosValidos.forEach(r => suma += parseFloat(r.porcentajes?.[idx] || 0));
+        return (suma / registrosValidos.length).toFixed(2);
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 500;
+      canvas.height = 300;
+
+      new Chart(canvas, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Porcentaje promedio (%)', data: valores }] },
+        options: {
+          responsive: false,
+          plugins: { title: { display: true, text: 'Porcentaje promedio por componente' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      await esperarRenderGrafica();
+      return canvas;
+    }
+
+    async function crearGraficaConformidad(datos) {
+      const conformes = datos.registros.filter(r => r.check === '✓').length;
+      const noConformes = datos.registros.filter(r => r.check === '✗').length;
+      const sinEvaluar = datos.registros.filter(r => !r.check).length;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 500;
+      canvas.height = 300;
+
+      new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: ['Conformes ✓', 'No conformes ✗', 'Sin evaluar'],
+          datasets: [{ data: [conformes, noConformes, sinEvaluar] }]
+        },
+        options: {
+          responsive: false,
+          plugins: { title: { display: true, text: 'Estado de conformidad' } }
+        }
+      });
+
+      await esperarRenderGrafica();
+      return canvas;
+    }
+
+    async function crearGraficaPesosPorHora(datos) {
+      const registrosValidos = obtenerRegistrosConPesos(datos).filter(r => r.hora);
+      if (!registrosValidos.length) return null;
+
+      const cols = obtenerColumnasCalculo(currentRecipe);
+      const labels = registrosValidos.map(r => r.hora);
+      const datasets = cols.map((col, idx) => ({
+        label: `${etiquetaColumna(col)} (g)`,
+        data: registrosValidos.map(r => parseFloat(r.pesos?.[idx] || 0)),
+        tension: 0.3
+      }));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 900;
+      canvas.height = 320;
+
+      new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: false,
+          plugins: { title: { display: true, text: 'Pesos capturados por hora' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      await esperarRenderGrafica();
+      return canvas;
+    }
 
     function pedirPasswordAdmin() { const modal=document.getElementById('adminLoginModal'); const input=document.getElementById('adminPasswordInput'); modal.style.display='block'; input.value=''; setTimeout(()=>input.focus(),100); }
     function validarPasswordAdmin() {
@@ -505,7 +748,7 @@
       guardarRecetas(restantes);
       limpiarEditorReceta();
       renderRecipeListAdmin();
-      renderRecipeSelectors();
+      llenarSelectoresReceta();
 
       const siguiente = restantes[0] || null;
       if (currentRecipeId === id) {
