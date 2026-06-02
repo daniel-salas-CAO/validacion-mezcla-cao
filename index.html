@@ -2,608 +2,392 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Verificación de Mezclas por Receta</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <title>Verificación de Mezclas – Firebase</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; padding:20px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; }
-    .container { max-width:1600px; margin:0 auto; background:#fff; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,.2); border-radius:10px; }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
-    .screen-title { color:#222; font-size:26px; font-weight:bold; }
-    .admin-btn { background:linear-gradient(135deg,#263238 0%,#000 100%); padding:12px 20px; }
-    .recipe-screen { min-height:60vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:24px; }
-    .recipe-card { width:min(760px,100%); padding:34px; border-radius:16px; background:linear-gradient(135deg,#f5f7fa 0%,#e4efe9 100%); box-shadow:0 8px 25px rgba(0,0,0,.12); }
-    .recipe-card h1 { font-size:34px; color:#2e7d32; margin-bottom:12px; }
-    .recipe-card p { color:#555; margin-bottom:24px; font-size:17px; }
-    .recipe-selector { width:100%; max-width:560px; padding:18px; border:3px solid #4CAF50; border-radius:10px; font-size:20px; font-weight:bold; background:#fff; }
-    .start-btn { margin-top:18px; font-size:18px; padding:16px 34px; }
-    .header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #4CAF50; padding-bottom:20px; margin-bottom:25px; gap:15px; }
-    .title { color:#333; font-size:24px; font-weight:bold; flex-grow:1; text-align:center; }
-    .metadata { display:grid; grid-template-columns:auto auto; gap:8px; font-size:14px; }
-    .metadata div { padding:8px 12px; border:2px solid #ddd; border-radius:4px; background:#f9f9f9; }
-    .metadata input { border:none; background:transparent; width:100%; font-size:14px; }
-    .instructions { margin:25px 0; padding:20px; background:linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%); border-left:5px solid #4CAF50; border-radius:5px; line-height:1.6; }
-    .fecha-codigo-row { display:flex; gap:30px; margin:25px 0; align-items:center; flex-wrap:wrap; }
-    .fecha-codigo-row > div { display:flex; align-items:center; gap:10px; }
-    .fecha-codigo-row input, .fecha-codigo-row select { padding:12px; border:2px solid #ddd; border-radius:5px; font-size:18px; min-width:180px; }
-    .control-panel { margin:25px 0; padding:20px; background:linear-gradient(135deg,#f5f5f5 0%,#e0e0e0 100%); border-radius:8px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-    button { padding:14px 28px; background:linear-gradient(135deg,#4CAF50 0%,#45a049 100%); color:white; border:none; border-radius:6px; cursor:pointer; font-size:16px; font-weight:bold; transition:all .3s; box-shadow:0 4px 6px rgba(0,0,0,.1); }
-    button:hover { transform:translateY(-2px); box-shadow:0 6px 12px rgba(0,0,0,.15); }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    .blue { background:linear-gradient(135deg,#2196F3 0%,#1976D2 100%); }
-    .orange { background:linear-gradient(135deg,#FF9800 0%,#F57C00 100%); }
-    .red { background:linear-gradient(135deg,#f44336 0%,#d32f2f 100%); }
-    .purple { background:linear-gradient(135deg,#7E57C2 0%,#512DA8 100%); }
-    .table-wrapper { overflow-x:auto; margin:20px 0; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.1); }
-    table { width:100%; border-collapse:collapse; font-size:14px; }
-    th,td { border:2px solid #ddd; padding:15px 10px; text-align:center; }
-    th { background:linear-gradient(135deg,#4CAF50 0%,#388E3C 100%); color:#fff; font-weight:bold; font-size:14px; }
-    .subheader { background:linear-gradient(135deg,#81C784 0%,#66BB6A 100%); color:#fff; }
-    input[type="text"], input[type="number"], input[type="time"], input[type="date"], select { width:100%; padding:14px 10px; border:2px solid #ddd; border-radius:4px; font-size:16px; font-weight:500; min-width:100px; }
-    input[type="number"] { font-size:18px; font-weight:bold; text-align:center; }
-    input:focus, select:focus { outline:none; border-color:#4CAF50; background:#f0f8f0; }
-    input[readonly] { background:#e3f2fd; color:#1565C0; font-weight:bold; }
-    tbody tr:hover { background:#f5f5f5; }
-    .delete-btn { background:linear-gradient(135deg,#f44336 0%,#d32f2f 100%); padding:8px 14px; font-size:14px; margin:0; }
-    .stats-panel { margin:20px 0; padding:20px; background:linear-gradient(135deg,#fff3e0 0%,#ffe0b2 100%); border-radius:8px; border-left:5px solid #ff9800; display:none; }
-    footer { margin-top:30px; text-align:center; color:#666; font-size:14px; padding-top:20px; border-top:2px solid #ddd; }
-    .modal { display:none; position:fixed; z-index:1000; inset:0; background:rgba(0,0,0,.7); }
-    .modal-content { background:white; margin:3% auto; padding:30px; border-radius:10px; width:92%; max-width:1200px; max-height:88vh; overflow-y:auto; box-shadow:0 10px 50px rgba(0,0,0,.3); }
-    .close { color:#777; float:right; font-size:32px; font-weight:bold; cursor:pointer; }
-    .historial-item, .recipe-edit-item { padding:15px; margin:10px 0; background:linear-gradient(135deg,#f5f5f5 0%,#e0e0e0 100%); border-radius:8px; border-left:4px solid #4CAF50; cursor:pointer; transition:all .3s; }
-    .historial-item:hover, .recipe-edit-item:hover { transform:translateX(5px); box-shadow:0 4px 8px rgba(0,0,0,.1); }
-    .saved-indicator { position:fixed; top:20px; right:20px; padding:15px 25px; background:linear-gradient(135deg,#4CAF50 0%,#45a049 100%); color:white; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.2); display:none; z-index:2000; }
-    .admin-layout { display:grid; grid-template-columns:1fr 1.3fr; gap:20px; margin-top:20px; }
-    .panel { border:2px solid #ddd; border-radius:10px; padding:18px; background:#fafafa; }
-    .panel h3 { margin-bottom:14px; color:#2e7d32; }
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
-    .mp-row { display:grid; grid-template-columns:.7fr 1.2fr 1fr .6fr; gap:8px; align-items:center; margin-bottom:8px; padding:10px; background:white; border:1px solid #ddd; border-radius:8px; }
-    .small-note { color:#666; font-size:13px; line-height:1.4; margin:8px 0 12px; }
-    .hidden { display:none !important; }
-    @media (max-width:900px){ .admin-layout{grid-template-columns:1fr;} .header{flex-direction:column;} .title{text-align:left;} }
-    @media print { body{background:#fff;padding:0;} .control-panel, button, .delete-btn, .topbar{display:none!important;} }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+    }
+    header {
+      background-color: #1a73e8;
+      color: white;
+      padding: 1em;
+      text-align: center;
+    }
+    main {
+      padding: 1em;
+    }
+    #adminModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+    }
+    #adminContent {
+      background: white;
+      margin: 5% auto;
+      padding: 2em;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #adminContent input,
+    #adminContent select,
+    #adminContent button {
+      margin: 0.5em 0;
+      width: 100%;
+      padding: 0.5em;
+      font-size: 1em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 0.5em;
+      text-align: center;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <div class="saved-indicator" id="savedIndicator">✅ Datos guardados automáticamente</div>
-
-  <div class="container" id="recipeSelectScreen">
-    <div class="topbar">
-      <div class="screen-title">Sistema de Verificación de Mezclas</div>
-      <button class="admin-btn" id="adminAccessBtn">⚙️ Administrador</button>
+  <header>
+    <h1>Sistema de verificación de mezclas (Firebase)</h1>
+  </header>
+  <main>
+    <div>
+      <label for="recipeList">Seleccione receta:</label>
+      <select id="recipeList"></select>
+      <button id="adminBtn">Administrador</button>
     </div>
-    <div class="recipe-screen">
-      <div class="recipe-card">
-        <h1>Seleccione receta</h1>
-        <p>Elija la receta que se va a validar. La tabla se generará automáticamente con sus materias primas, códigos y porcentajes.</p>
-        <select id="recipeSelector" class="recipe-selector"></select>
-        <br />
-        <button id="startRecipeBtn" class="start-btn">✅ Cargar formato</button>
-      </div>
-    </div>
-  </div>
+    <table id="verificationTable">
+      <thead>
+        <tr id="tableHeader"></tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- Las filas se generarán dinámicamente -->
+      </tbody>
+    </table>
+  </main>
 
-  <div class="container hidden" id="mainApp">
-    <div class="topbar">
-      <button class="purple" id="backToRecipes">⬅️ Cambiar receta</button>
-      <button class="admin-btn" id="adminAccessBtn2">⚙️ Administrador</button>
-    </div>
-    <div id="reportContent">
-      <div class="header">
-        <div class="title">CHECK-LIST DE VERIFICACIÓN DE MEZCLA DIARIA</div>
-        <div class="metadata">
-          <div><strong>Receta</strong></div>
-          <div id="nombreRecetaMeta">-</div>
-          <div><strong>Revisión</strong></div>
-          <div>00</div>
-          <div><strong>Página</strong></div>
-          <div>1 de 1</div>
-        </div>
-      </div>
-
-      <div class="instructions">
-        <p><strong>📋 Instrucciones:</strong> Indique el lote, valide los pesos de las materias primas de acuerdo con la receta seleccionada y verifique si cumple con los porcentajes esperados.</p>
-        <p><strong>✅ Turno:</strong> Marque con una "✓" si el proceso se realizó conforme a la receta. En caso contrario, marque con una "✗".</p>
-      </div>
-
-      <div class="fecha-codigo-row">
-        <div><strong>📅 Fecha:</strong><input type="date" id="fecha" /></div>
-        <div><strong>Receta activa:</strong><select id="activeRecipeSelector"></select></div>
-      </div>
-
-      <div class="control-panel">
-        <button id="addRow">➕ Agregar Fila</button>
-        <button id="calcularPorcentajes">🔢 Calcular Porcentajes</button>
-        <button id="guardarDatos">💾 Guardar Datos</button>
-        <button id="verHistorial" class="orange">📚 Ver Historial</button>
-        <button id="exportarPDF" class="blue">📄 Descargar Reporte PDF</button>
-        <button id="limpiarFormulario" class="red">🗑️ Limpiar Día Actual</button>
-        <button id="resetHistorial" class="red">♻️ Resetear Historial</button>
-      </div>
-
-      <div class="table-wrapper">
-        <table id="mezclaDiariaTable">
-          <thead id="dynamicThead"></thead>
-          <tbody id="dynamicTbody"></tbody>
-        </table>
-      </div>
-
-      <div class="stats-panel" id="statsPanel">
-        <h4>📊 Estadísticas del Reporte</h4>
-        <div id="statsContent"></div>
-      </div>
-
-      <footer>
-        <p>© 2026 - Sistema de Validación de Mezcla Diaria | Generado el <span id="fechaGeneracion"></span></p>
-      </footer>
-    </div>
-  </div>
-
-  <div id="historialModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="cerrarHistorial()">&times;</span>
-      <h2>📚 Historial de Reportes</h2>
-      <div id="historialContent"></div>
-    </div>
-  </div>
-
-  <div id="adminLoginModal" class="modal">
-    <div class="modal-content" style="max-width:460px;">
-      <span class="close" onclick="cerrarAdminLogin()">&times;</span>
-      <h2>🔐 Acceso administrador</h2>
-      <p class="small-note">Ingrese la contraseña para abrir el editor de recetas.</p>
-      <input type="password" id="adminPasswordInput" placeholder="Contraseña" style="margin:15px 0; font-size:18px; padding:14px;" />
-      <button id="adminLoginConfirmBtn">Entrar</button>
-    </div>
-  </div>
-
-  <div id="adminModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="cerrarAdmin()">&times;</span>
-      <h2>⚙️ Editor de Recetas</h2>
-      <p class="small-note">Solo captura los datos variables: PT, materias primas y porcentaje de Fécula. La Fécula siempre aparece separada de las MP y sí cuenta para el cálculo de porcentajes.</p>
-      <div class="admin-layout">
-        <div class="panel">
-          <h3>Recetas guardadas</h3>
-          <div id="recipeListAdmin"></div>
-          <button id="newRecipeBtn" class="blue">➕ Nueva receta</button>
-          <hr style="margin:16px 0; border:none; border-top:1px solid #ddd;">
-          <h3>Base de datos de recetas</h3>
-          <p class="small-note">Exporta tus recetas como respaldo JSON o impórtalas en otra versión/tableta.</p>
-          <button id="exportRecipesBtn" class="blue">📤 Exportar recetas JSON</button>
-          <button id="importRecipesBtn" class="orange">📥 Importar recetas JSON</button>
-          <input type="file" id="importRecipesFile" accept="application/json,.json" style="display:none;">
-        </div>
-        <div class="panel">
-          <h3 id="editorTitle">Nueva receta</h3>
-          <input type="hidden" id="editRecipeId" />
-          <div class="form-grid">
-            <div><label>Nombre de receta</label><input type="text" id="editRecipeName" placeholder="Ej. 135 - Mozzarella Parmesano" /></div>
-            <div><label>PT</label><input type="text" id="editRecipePT" placeholder="Ej. 135" /></div>
+  <!-- Modal de administración -->
+  <div id="adminModal">
+    <div id="adminContent">
+      <h2>Editor de recetas</h2>
+      <form id="recipeForm">
+        <label>Código PT
+          <input type="text" id="ptCode" required />
+        </label>
+        <label>Nombre de receta
+          <input type="text" id="recipeName" required />
+        </label>
+        <!-- Materias primas dinamizadas: hasta 4 -->
+        <div id="mpContainer">
+          <div class="mpRow">
+            <label>MP1 Nombre
+              <input type="text" class="mpNombre" />
+            </label>
+            <label>MP1 Código
+              <input type="text" class="mpCodigo" />
+            </label>
+            <label>MP1 %
+              <input type="number" step="0.01" class="mpPorcentaje" />
+            </label>
           </div>
-          <h3>Materias primas</h3>
-          <p class="small-note">Puedes usar de 1 a 4 MP. Si dejas una vacía, no aparecerá en la tabla. Fécula es fija y se captura aparte.</p>
-          <div id="mpEditorRows"></div>
-          <div class="panel" style="margin:12px 0; background:#fff;">
-            <h3>Fécula fija</h3>
-            <p class="small-note">La Fécula no es materia prima, pero siempre aparece en Receta (%), Validación de pesos y Validación de porcentajes.</p>
-            <label>Porcentaje de Fécula (%)<input type="number" step="0.01" min="0" max="100" id="editFeculaPorcentaje" placeholder="Ej. 1.2 o 2.5" /></label>
+          <div class="mpRow">
+            <label>MP2 Nombre
+              <input type="text" class="mpNombre" />
+            </label>
+            <label>MP2 Código
+              <input type="text" class="mpCodigo" />
+            </label>
+            <label>MP2 %
+              <input type="number" step="0.01" class="mpPorcentaje" />
+            </label>
           </div>
-          <button id="saveRecipeBtn">💾 Guardar receta</button>
-          <button id="deleteRecipeBtn" class="red">🗑️ Eliminar receta</button>
+          <div class="mpRow">
+            <label>MP3 Nombre
+              <input type="text" class="mpNombre" />
+            </label>
+            <label>MP3 Código
+              <input type="text" class="mpCodigo" />
+            </label>
+            <label>MP3 %
+              <input type="number" step="0.01" class="mpPorcentaje" />
+            </label>
+          </div>
+          <div class="mpRow">
+            <label>MP4 Nombre
+              <input type="text" class="mpNombre" />
+            </label>
+            <label>MP4 Código
+              <input type="text" class="mpCodigo" />
+            </label>
+            <label>MP4 %
+              <input type="number" step="0.01" class="mpPorcentaje" />
+            </label>
+          </div>
         </div>
-      </div>
+        <label>Fécula %
+          <input type="number" step="0.01" id="feculaPorcentaje" />
+        </label>
+        <button type="submit" id="saveRecipeBtn">Guardar / Actualizar</button>
+        <button type="button" id="deleteRecipeBtn">Eliminar</button>
+        <button type="button" id="closeAdminBtn">Cerrar</button>
+      </form>
     </div>
   </div>
 
-  <script>
-    const ADMIN_PASSWORD = 'sistemas2026$';
-    const RECIPE_STORAGE_KEY = 'mezcla_recetas_config_v2';
-    let currentRecipeId = null;
-    let currentRecipe = null;
-    let autoSaveInterval = null;
-    let cambioDiaInterval = null;
-    let fechaActiva = null;
+  <!-- Cargar Firebase SDK modular -->
+  <script type="module">
+    // Importar las funciones necesarias de Firebase
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 
-    const defaultRecipes = [
-      {
-        id: '135-parmesano-1-2',
-        name: '135 - Mozzarella Parmesano 1.2% Fécula',
-        pt: '135',
-        materiasPrimas: [
-          { mp: 'MP1', codigo: '12', nombre: 'WholeMilk', porcentaje: 50 },
-          { mp: 'MP2', codigo: '13', nombre: 'PartSkim', porcentaje: 45 },
-          { mp: 'MP3', codigo: '02', nombre: 'Parmesano', porcentaje: 5 }
-        ],
-        fecula: { nombre: 'Fecula', porcentaje: 1.2 }
-      },
-      {
-        id: '135-parmesano-2-5',
-        name: '135 - Mozzarella Parmesano 2.5% Fécula',
-        pt: '135',
-        materiasPrimas: [
-          { mp: 'MP1', codigo: '12', nombre: 'WholeMilk', porcentaje: 50 },
-          { mp: 'MP2', codigo: '13', nombre: 'PartSkim', porcentaje: 45 },
-          { mp: 'MP3', codigo: '02', nombre: 'Parmesano', porcentaje: 5 }
-        ],
-        fecula: { nombre: 'Fecula', porcentaje: 2.5 }
+    // TODO: Reemplaza con tu configuración de Firebase. Ve a la consola de Firebase,
+    // crea un proyecto web y copia la configuración aquí.
+    const firebaseConfig = {
+      apiKey: "REEMPLAZAR_API_KEY",
+      authDomain: "REEMPLAZAR_AUTH_DOMAIN",
+      projectId: "REEMPLAZAR_PROJECT_ID",
+      storageBucket: "REEMPLAZAR_STORAGE_BUCKET",
+      messagingSenderId: "REEMPLAZAR_MESSAGING_SENDER_ID",
+      appId: "REEMPLAZAR_APP_ID"
+    };
+
+    // Inicializar Firebase y Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const recetasCol = collection(db, 'recetas');
+
+    const recipeList = document.getElementById('recipeList');
+    const adminBtn = document.getElementById('adminBtn');
+    const adminModal = document.getElementById('adminModal');
+    const closeAdminBtn = document.getElementById('closeAdminBtn');
+    const recipeForm = document.getElementById('recipeForm');
+    const ptCodeInput = document.getElementById('ptCode');
+    const recipeNameInput = document.getElementById('recipeName');
+    const mpRows = document.querySelectorAll('.mpRow');
+    const feculaInput = document.getElementById('feculaPorcentaje');
+    const tableHeader = document.getElementById('tableHeader');
+    const tableBody = document.getElementById('tableBody');
+
+    // Mostrar/ocultar ventana de administrador
+    adminBtn.addEventListener('click', () => {
+      adminModal.style.display = 'block';
+    });
+    closeAdminBtn.addEventListener('click', () => {
+      adminModal.style.display = 'none';
+      clearAdminForm();
+    });
+    window.addEventListener('click', (e) => {
+      if (e.target === adminModal) {
+        adminModal.style.display = 'none';
+        clearAdminForm();
       }
-    ];
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const now = new Date();
-      document.getElementById('fecha').valueAsDate = now;
-      fechaActiva = obtenerFechaHoy();
-      document.getElementById('fechaGeneracion').textContent = now.toLocaleString('es-MX');
-      cargarRecetasIniciales();
-      llenarSelectoresReceta();
-      construirEditorMP();
-      enlazarEventos();
     });
 
-    function normalizarReceta(r) {
-      const materias = (r.materiasPrimas || []).filter(mp => (mp.nombre || '').trim() && !/fecula|fécula/i.test(mp.nombre));
-      const feculaEncontrada = (r.materiasPrimas || []).find(mp => /fecula|fécula/i.test(mp.nombre));
+    /**
+     * Convierte los inputs del editor en un objeto de receta.
+     */
+    function gatherRecipeData() {
+      const pt = ptCodeInput.value.trim();
+      const nombreReceta = recipeNameInput.value.trim();
+      const materiasPrimas = [];
+      mpRows.forEach((row, index) => {
+        const nombre = row.querySelector('.mpNombre').value.trim();
+        const codigo = row.querySelector('.mpCodigo').value.trim();
+        const porcentaje = parseFloat(row.querySelector('.mpPorcentaje').value);
+        if (nombre && codigo && !isNaN(porcentaje)) {
+          materiasPrimas.push({ nombre, codigo, porcentaje });
+        }
+      });
+      const fecula = parseFloat(feculaInput.value);
       return {
-        ...r,
-        materiasPrimas: materias.map((mp, i) => ({ mp: `MP${i+1}`, codigo: mp.codigo || '', nombre: String(mp.nombre || '').replace(/\s+/g,''), porcentaje: parseFloat(mp.porcentaje || 0) })),
-        fecula: r.fecula || { nombre: 'Fecula', porcentaje: parseFloat(feculaEncontrada?.porcentaje || 0) }
+        pt: pt,
+        nombre: nombreReceta,
+        materiasPrimas: materiasPrimas,
+        fecula: isNaN(fecula) ? 0 : fecula
       };
     }
 
-    function cargarRecetasIniciales() {
-      const saved = localStorage.getItem(RECIPE_STORAGE_KEY);
-      if (!saved) localStorage.setItem(RECIPE_STORAGE_KEY, JSON.stringify(defaultRecipes));
-    }
-
-    function obtenerRecetas() {
-      try { return (JSON.parse(localStorage.getItem(RECIPE_STORAGE_KEY)) || defaultRecipes).map(normalizarReceta); }
-      catch { return defaultRecipes.map(normalizarReceta); }
-    }
-
-    function guardarRecetas(recetas) {
-      localStorage.setItem(RECIPE_STORAGE_KEY, JSON.stringify(recetas.map(normalizarReceta)));
-      llenarSelectoresReceta();
-      renderRecipeListAdmin();
-    }
-
-    function llenarSelectoresReceta() {
-      const recetas = obtenerRecetas();
-      [document.getElementById('recipeSelector'), document.getElementById('activeRecipeSelector')].forEach(sel => {
-        if (!sel) return;
-        const previous = sel.value;
-        sel.innerHTML = '<option value="">Seleccione receta</option>';
-        recetas.forEach(r => { const opt = document.createElement('option'); opt.value = r.id; opt.textContent = r.name; sel.appendChild(opt); });
-        if (previous && recetas.some(r => r.id === previous)) sel.value = previous;
+    /**
+     * Limpia los campos del editor de recetas.
+     */
+    function clearAdminForm() {
+      ptCodeInput.value = '';
+      recipeNameInput.value = '';
+      mpRows.forEach((row) => {
+        row.querySelector('.mpNombre').value = '';
+        row.querySelector('.mpCodigo').value = '';
+        row.querySelector('.mpPorcentaje').value = '';
       });
+      feculaInput.value = '';
     }
 
-    function enlazarEventos() {
-      document.getElementById('startRecipeBtn').addEventListener('click', () => iniciarReceta(document.getElementById('recipeSelector').value));
-      document.getElementById('backToRecipes').addEventListener('click', volverSelector);
-      document.getElementById('activeRecipeSelector').addEventListener('change', e => cambiarRecetaActiva(e.target.value));
-      document.getElementById('adminAccessBtn').addEventListener('click', pedirPasswordAdmin);
-      document.getElementById('adminAccessBtn2').addEventListener('click', pedirPasswordAdmin);
-      document.getElementById('adminLoginConfirmBtn').addEventListener('click', validarPasswordAdmin);
-      document.getElementById('adminPasswordInput').addEventListener('keydown', e => { if (e.key === 'Enter') validarPasswordAdmin(); });
-      document.getElementById('addRow').addEventListener('click', () => addNewRow());
-      document.getElementById('calcularPorcentajes').addEventListener('click', calcularTodosPorcentajes);
-      document.getElementById('guardarDatos').addEventListener('click', guardarDatosManual);
-      document.getElementById('verHistorial').addEventListener('click', mostrarHistorial);
-      document.getElementById('exportarPDF').addEventListener('click', exportarPDFCompleto);
-      document.getElementById('limpiarFormulario').addEventListener('click', limpiarFormulario);
-      document.getElementById('resetHistorial').addEventListener('click', resetHistorial);
-      document.getElementById('fecha').addEventListener('change', cambioFechaManual);
-      document.getElementById('newRecipeBtn').addEventListener('click', limpiarEditorReceta);
-      document.getElementById('saveRecipeBtn').addEventListener('click', guardarRecetaDesdeEditor);
-      document.getElementById('deleteRecipeBtn').addEventListener('click', eliminarRecetaDesdeEditor);
-      document.getElementById('exportRecipesBtn').addEventListener('click', exportarRecetasJSON);
-      document.getElementById('importRecipesBtn').addEventListener('click', () => document.getElementById('importRecipesFile').click());
-      document.getElementById('importRecipesFile').addEventListener('change', importarRecetasJSON);
-      document.addEventListener('input', debounce(() => { if (currentRecipe) guardarDatosAutomatico(); }, 3000));
-      window.onclick = function(event) {
-        if (event.target === document.getElementById('historialModal')) cerrarHistorial();
-        if (event.target === document.getElementById('adminModal')) cerrarAdmin();
-        if (event.target === document.getElementById('adminLoginModal')) cerrarAdminLogin();
-      };
-    }
-
-    function iniciarReceta(recipeId) {
-      if (!recipeId) { alert('Seleccione una receta para continuar.'); return; }
-      const receta = obtenerRecetas().find(r => r.id === recipeId);
-      if (!receta) { alert('No se encontró la receta seleccionada.'); return; }
-      currentRecipeId = receta.id; currentRecipe = receta;
-      document.getElementById('recipeSelectScreen').classList.add('hidden');
-      document.getElementById('mainApp').classList.remove('hidden');
-      document.getElementById('activeRecipeSelector').value = receta.id;
-      aplicarReceta(receta);
-      iniciarAutoGuardado(); iniciarCambioAutomaticoDia();
-    }
-
-    function volverSelector() { guardarDatosAutomatico(); document.getElementById('mainApp').classList.add('hidden'); document.getElementById('recipeSelectScreen').classList.remove('hidden'); }
-
-    function cambiarRecetaActiva(recipeId) {
-      if (!recipeId) return;
-      if (currentRecipe && hayDatosCapturados() && !confirm('Cambiar de receta limpiará la tabla actual. ¿Desea continuar?')) { document.getElementById('activeRecipeSelector').value = currentRecipeId; return; }
-      const receta = obtenerRecetas().find(r => r.id === recipeId); if (!receta) return;
-      currentRecipeId = receta.id; currentRecipe = receta; aplicarReceta(receta);
-    }
-
-    function obtenerMpsValidas(receta) { return (receta.materiasPrimas || []).filter(mp => (mp.nombre || '').trim() !== ''); }
-    function obtenerColumnasCalculo(receta) { return [...obtenerMpsValidas(receta), { mp: 'FEC', codigo: '', nombre: 'Fecula', porcentaje: receta.fecula?.porcentaje ?? 0, esFecula: true }]; }
-    function etiquetaColumna(item) { return item.esFecula ? 'Fecula' : item.nombre; }
-
-    function aplicarReceta(receta, registros = null) {
-      document.getElementById('nombreRecetaMeta').textContent = receta.name || '-';
-      generarEncabezadosTabla(receta);
-      document.getElementById('dynamicTbody').innerHTML = '';
-      const datosGuardados = registros || cargarDatosGuardados(receta.id, document.getElementById('fecha').value);
-      if (datosGuardados && datosGuardados.registros && datosGuardados.registros.length) datosGuardados.registros.forEach(r => addNewRow(r));
-      else for (let i = 0; i < 5; i++) addNewRow();
-      document.getElementById('statsPanel').style.display = 'none';
-    }
-
-    function generarEncabezadosTabla(receta) {
-      const mps = obtenerMpsValidas(receta);
-      const colsCalc = obtenerColumnasCalculo(receta);
-      document.getElementById('dynamicThead').innerHTML = `
-        <tr>
-          <th rowspan="2">Hora</th><th rowspan="2">Lote</th>
-          <th colspan="${1 + mps.length}">Códigos</th>
-          <th colspan="${colsCalc.length}">Receta (%)</th>
-          <th colspan="${colsCalc.length}">Validación de pesos (gr)</th>
-          <th colspan="${colsCalc.length}">Validación de porcentajes (%)</th>
-          <th rowspan="2">Check</th><th rowspan="2">Realiza</th><th rowspan="2">Verifica</th><th rowspan="2">Valida</th><th rowspan="2">Acción</th>
-        </tr>
-        <tr class="subheader">
-          <th>PT</th>${mps.map(mp => `<th>${mp.mp}</th>`).join('')}
-          ${colsCalc.map(mp => `<th>${escapeHtml(etiquetaColumna(mp))}</th>`).join('')}
-          ${colsCalc.map(mp => `<th>${escapeHtml(etiquetaColumna(mp))}</th>`).join('')}
-          ${colsCalc.map(mp => `<th>${escapeHtml(etiquetaColumna(mp))}</th>`).join('')}
-        </tr>`;
-    }
-
-    function addNewRow(datosRegistro = null) {
-      if (!currentRecipe) return;
-      const tbody = document.getElementById('dynamicTbody');
-      const now = new Date(); now.setHours(now.getHours() + tbody.children.length);
-      const horaStr = datosRegistro?.hora || String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-      const mps = obtenerMpsValidas(currentRecipe);
-      const colsCalc = obtenerColumnasCalculo(currentRecipe);
-      const row = document.createElement('tr'); row.className = 'input-row';
-      row.innerHTML = `
-        <td><input type="time" value="${horaStr}"></td>
-        <td><input type="text" placeholder="Lote" value="${datosRegistro?.lote || ''}"></td>
-        <td><input type="text" placeholder="PT" value="${currentRecipe.pt || ''}" readonly></td>
-        ${mps.map((mp) => `<td><input type="text" placeholder="${mp.mp}" value="${mp.codigo ?? ''}" readonly></td>`).join('')}
-        ${colsCalc.map((mp) => `<td><input type="number" step="0.01" min="0" max="100" placeholder="% ${escapeHtml(mp.nombre)}" value="${mp.porcentaje ?? ''}" readonly></td>`).join('')}
-        ${colsCalc.map((mp, idx) => `<td><input type="number" step="0.01" placeholder="Peso" class="peso-item" data-index="${idx}" value="${datosRegistro?.pesos?.[idx] ?? ''}"></td>`).join('')}
-        ${colsCalc.map((mp, idx) => `<td><input type="number" step="0.01" placeholder="%" class="porcentaje-item" data-index="${idx}" value="${datosRegistro?.porcentajes?.[idx] ?? ''}" readonly></td>`).join('')}
-        <td class="check-column"><select><option value="" ${!datosRegistro?.check ? 'selected' : ''}>-</option><option value="✓" ${datosRegistro?.check === '✓' ? 'selected' : ''}>✓</option><option value="✗" ${datosRegistro?.check === '✗' ? 'selected' : ''}>✗</option></select></td>
-        <td><input type="text" placeholder="Iniciales" value="${datosRegistro?.realiza || ''}"></td>
-        <td><input type="text" placeholder="Iniciales" value="${datosRegistro?.verifica || ''}"></td>
-        <td><input type="text" placeholder="Iniciales" value="${datosRegistro?.valida || ''}"></td>
-        <td><button class="delete-btn" onclick="eliminarFila(this)">❌</button></td>`;
-      tbody.appendChild(row);
-      row.querySelectorAll('.peso-item').forEach(input => input.addEventListener('input', () => calcularPorcentajesFila(row)));
-      if (datosRegistro) calcularPorcentajesFila(row);
-    }
-
-    function calcularPorcentajesFila(row) {
-      const pesos = [...row.querySelectorAll('.peso-item')].map(i => parseFloat(i.value) || 0);
-      const porcentajes = row.querySelectorAll('.porcentaje-item');
-      const mpCount = obtenerMpsValidas(currentRecipe).length;
-
-      // Las materias primas se calculan entre ellas y deben sumar 100%.
-      // La Fécula NO se suma al total de MP; se calcula aparte como:
-      // % Fécula = pesoFecula / pesoTotalMateriasPrimas * 100
-      const totalMateriasPrimas = pesos.slice(0, mpCount).reduce((a, b) => a + b, 0);
-
-      if (totalMateriasPrimas > 0) {
-        porcentajes.forEach((input, idx) => {
-          input.value = ((pesos[idx] / totalMateriasPrimas) * 100).toFixed(2);
+    /**
+     * Carga la receta seleccionada y genera la tabla.
+     */
+    function loadRecipeToTable(recipeData) {
+      // Encabezados dinámicos
+      tableHeader.innerHTML = '';
+      const headers = ['Hora', 'Lote'];
+      recipeData.materiasPrimas.forEach(mp => {
+        headers.push(`${mp.nombre} (g)`);
+      });
+      if (recipeData.fecula && recipeData.fecula > 0) {
+        headers.push('Fécula (g)');
+      }
+      headers.push('Total (g)');
+      headers.push('Realiza');
+      headers.push('Verifica');
+      headers.push('Valida');
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        tableHeader.appendChild(th);
+      });
+      // Filas vacías para capturar datos (ejemplo: 5 filas)
+      tableBody.innerHTML = '';
+      for (let i = 0; i < 5; i++) {
+        const tr = document.createElement('tr');
+        // Hora y Lote
+        let td = document.createElement('td');
+        const horaInput = document.createElement('input');
+        horaInput.type = 'time';
+        td.appendChild(horaInput);
+        tr.appendChild(td);
+        td = document.createElement('td');
+        const loteInput = document.createElement('input');
+        loteInput.type = 'text';
+        td.appendChild(loteInput);
+        tr.appendChild(td);
+        // MPs
+        recipeData.materiasPrimas.forEach(mp => {
+          const tdMp = document.createElement('td');
+          const pesoInput = document.createElement('number');
+          pesoInput.type = 'number';
+          pesoInput.min = '0';
+          pesoInput.step = '0.01';
+          tdMp.appendChild(pesoInput);
+          tr.appendChild(tdMp);
         });
-      } else {
-        porcentajes.forEach(input => input.value = '');
+        // Fécula
+        if (recipeData.fecula && recipeData.fecula > 0) {
+          const tdFecula = document.createElement('td');
+          const pesoFeculaInput = document.createElement('number');
+          pesoFeculaInput.type = 'number';
+          pesoFeculaInput.min = '0';
+          pesoFeculaInput.step = '0.01';
+          tdFecula.appendChild(pesoFeculaInput);
+          tr.appendChild(tdFecula);
+        }
+        // Total
+        const tdTotal = document.createElement('td');
+        tdTotal.textContent = '0';
+        tr.appendChild(tdTotal);
+        // Realiza, Verifica, Valida
+        ['Realiza', 'Verifica', 'Valida'].forEach(() => {
+          const tdPerson = document.createElement('td');
+          const select = document.createElement('select');
+          ['--','A','B','C'].forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            select.appendChild(opt);
+          });
+          tdPerson.appendChild(select);
+          tr.appendChild(tdPerson);
+        });
+        tableBody.appendChild(tr);
       }
     }
-    function calcularTodosPorcentajes() { document.querySelectorAll('.input-row').forEach(calcularPorcentajesFila); mostrarEstadisticas(); alert('✅ Porcentajes calculados correctamente'); }
 
-    function storageKey(recipeId, fecha) { return `mezcla_${recipeId}_${fecha}`; }
-    function recopilarDatos() {
-      const filas = document.querySelectorAll('.input-row');
-      const datos = { fecha: document.getElementById('fecha').value, recipeId: currentRecipeId, recetaNombre: currentRecipe?.name || '', codigo: currentRecipe?.pt || '', registros: [] };
-      filas.forEach(fila => {
-        const inputs = fila.querySelectorAll('input, select');
-        const mpCount = obtenerMpsValidas(currentRecipe).length;
-        const calcCount = obtenerColumnasCalculo(currentRecipe).length;
-        let pos = 0; const hora = inputs[pos++].value; const lote = inputs[pos++].value; const pt = inputs[pos++].value;
-        const codigos = []; for (let i=0;i<mpCount;i++) codigos.push(inputs[pos++].value);
-        const recetaPorcentajes = []; for (let i=0;i<calcCount;i++) recetaPorcentajes.push(inputs[pos++].value);
-        const pesos = []; for (let i=0;i<calcCount;i++) pesos.push(inputs[pos++].value);
-        const porcentajes = []; for (let i=0;i<calcCount;i++) porcentajes.push(inputs[pos++].value);
-        datos.registros.push({ hora,lote,pt,codigos,recetaPorcentajes,pesos,porcentajes,check:inputs[pos++].value,realiza:inputs[pos++].value,verifica:inputs[pos++].value,valida:inputs[pos++].value });
+    /**
+     * Actualiza la lista de recetas cada vez que hay cambios en Firestore.
+     * Utiliza onSnapshot para escuchar cambios en tiempo real según la documentación【929142084285187†L1521-L1524】.
+     */
+    function initializeRecipeListener() {
+      onSnapshot(recetasCol, (snapshot) => {
+        recipeList.innerHTML = '';
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const option = document.createElement('option');
+          option.value = docSnap.id;
+          option.textContent = `${data.pt} - ${data.nombre}`;
+          option.dataset.recipe = JSON.stringify(data);
+          recipeList.appendChild(option);
+        });
+        // Seleccionar la primera receta automáticamente
+        if (recipeList.options.length > 0) {
+          const firstOption = recipeList.options[0];
+          loadRecipeToTable(JSON.parse(firstOption.dataset.recipe));
+        }
       });
-      return datos;
     }
-    function hayDatosCapturados() { const datos = recopilarDatos(); return datos.registros.some(r => r.lote || r.pesos.some(p => p) || r.check || r.realiza || r.verifica || r.valida); }
-    function guardarDatosAutomatico() { if (!currentRecipe) return; const datos = recopilarDatos(); if (datos.registros.length > 0 && datos.registros.some(r => r.lote || r.pesos.some(p => p) || r.check)) { localStorage.setItem(storageKey(currentRecipeId, datos.fecha), JSON.stringify(datos)); limpiarDatosAntiguos(); mostrarIndicadorGuardado(); } }
-    function guardarDatosManual() { guardarDatosAutomatico(); alert('💾 Datos guardados correctamente para la fecha: ' + document.getElementById('fecha').value); }
-    function cargarDatosGuardados(recipeId, fecha) { const raw = localStorage.getItem(storageKey(recipeId, fecha)); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
 
-    function limpiarDatosAntiguos() {
-      const haceUnaSemana = new Date(); haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
-      const keys = []; for (let i=0;i<localStorage.length;i++) { const key = localStorage.key(i); if (key && key.startsWith('mezcla_') && !key.startsWith('mezcla_recetas')) { const fecha = key.split('_').pop(); const d = new Date(fecha + 'T00:00:00'); if (!isNaN(d) && d < haceUnaSemana) keys.push(key); } }
-      keys.forEach(k => localStorage.removeItem(k));
-    }
-    function mostrarIndicadorGuardado() { const indicator = document.getElementById('savedIndicator'); indicator.style.display = 'block'; setTimeout(() => indicator.style.display = 'none', 1800); }
-    function iniciarAutoGuardado() { if (autoSaveInterval) clearInterval(autoSaveInterval); autoSaveInterval = setInterval(guardarDatosAutomatico, 30000); }
-    function obtenerFechaHoy() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
-    function iniciarCambioAutomaticoDia() { if (cambioDiaInterval) clearInterval(cambioDiaInterval); fechaActiva = document.getElementById('fecha').value || obtenerFechaHoy(); cambioDiaInterval = setInterval(() => { const hoy = obtenerFechaHoy(); if (hoy !== fechaActiva) { guardarDatosAutomatico(); fechaActiva = hoy; document.getElementById('fecha').value = hoy; aplicarReceta(currentRecipe, []); alert('📅 Se detectó cambio de día. Se guardó el día anterior y se abrió una tabla limpia para hoy.'); } }, 30000); }
-    function cambioFechaManual() { if (!currentRecipe) return; fechaActiva = document.getElementById('fecha').value; const datos = cargarDatosGuardados(currentRecipeId, fechaActiva); if (datos) aplicarReceta(currentRecipe, datos.registros); else aplicarReceta(currentRecipe, []); }
-
-    function mostrarHistorial() {
-      const content = document.getElementById('historialContent'); content.innerHTML = '';
-      const reportes = [];
-      for (let i=0;i<localStorage.length;i++) { const key = localStorage.key(i); if (key && key.startsWith('mezcla_') && !key.startsWith('mezcla_recetas')) { try { reportes.push(JSON.parse(localStorage.getItem(key))); } catch {} } }
-      reportes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-      if (!reportes.length) content.innerHTML = '<p style="padding:20px;text-align:center;">No hay reportes guardados.</p>';
-      else reportes.forEach(rep => { const div = document.createElement('div'); div.className='historial-item'; const conformes=rep.registros.filter(r=>r.check==='✓').length; const total=rep.registros.filter(r=>r.check).length; div.innerHTML=`<h3>📅 ${escapeHtml(rep.fecha)} - ${escapeHtml(rep.recetaNombre || rep.recipeId)}</h3><p><strong>Registros:</strong> ${rep.registros.length} | <strong>Conformes:</strong> ${conformes}/${total}</p>`; div.onclick=()=>cargarReporteHistorico(rep); content.appendChild(div); });
-      document.getElementById('historialModal').style.display = 'block';
-    }
-    function cargarReporteHistorico(reporte) { const receta = obtenerRecetas().find(r => r.id === reporte.recipeId); if (!receta) { alert('La receta de este reporte ya no existe.'); return; } if (confirm(`¿Desea cargar el reporte del ${reporte.fecha}?`)) { currentRecipeId=receta.id; currentRecipe=receta; document.getElementById('fecha').value=reporte.fecha; document.getElementById('activeRecipeSelector').value=receta.id; aplicarReceta(receta, reporte.registros); cerrarHistorial(); } }
-    function limpiarFormulario() {
-      if (!currentRecipe) return;
-      const fecha = document.getElementById('fecha').value;
-      if (confirm('⚠️ Se borrará el contenido capturado de esta tabla y también el guardado de esta fecha y receta. ¿Continuar?')) {
-        localStorage.removeItem(storageKey(currentRecipeId, fecha));
-        document.getElementById('dynamicTbody').innerHTML = '';
-        for (let i = 0; i < 5; i++) addNewRow();
-        document.getElementById('statsPanel').style.display = 'none';
-        alert('🗑️ Tabla limpia. Se conservaron la receta, PT, códigos y porcentajes base.');
+    // Guardar o actualizar receta en Firestore
+    recipeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = gatherRecipeData();
+      if (!data.pt) {
+        alert('El código PT es obligatorio');
+        return;
       }
-    }
-    function resetHistorial() { if (confirm('⚠️ Esto borrará todos los reportes guardados, pero NO borrará las recetas. ¿Continuar?')) { const keys=[]; for (let i=0;i<localStorage.length;i++) { const key=localStorage.key(i); if (key && key.startsWith('mezcla_') && !key.startsWith('mezcla_recetas')) keys.push(key); } keys.forEach(k=>localStorage.removeItem(k)); aplicarReceta(currentRecipe, []); alert('♻️ Historial reseteado correctamente.'); } }
-    function mostrarEstadisticas() { const datos=recopilarDatos(); const total=datos.registros.filter(r=>r.check).length; const conformes=datos.registros.filter(r=>r.check==='✓').length; const noConformes=datos.registros.filter(r=>r.check==='✗').length; if (total>0) { document.getElementById('statsContent').innerHTML=`<p><strong>Total evaluados:</strong> ${total}</p><p><strong>Conformes:</strong> ${conformes} (${((conformes/total)*100).toFixed(1)}%)</p><p><strong>No conformes:</strong> ${noConformes} (${((noConformes/total)*100).toFixed(1)}%)</p>`; document.getElementById('statsPanel').style.display='block'; } }
-    async function exportarPDFCompleto() { const { jsPDF } = window.jspdf; const boton=document.getElementById('exportarPDF'); boton.disabled=true; boton.textContent='⏳ Generando reporte...'; try { document.querySelectorAll('.input-row').forEach(calcularPorcentajesFila); const pdf=new jsPDF('l','mm','a4'); let y=18; pdf.setFontSize(17); pdf.text('REPORTE DE VERIFICACIÓN DE MEZCLA DIARIA', pdf.internal.pageSize.getWidth()/2, y, {align:'center'}); y+=10; pdf.setFontSize(11); pdf.text(`Fecha: ${document.getElementById('fecha').value}`,15,y); pdf.text(`Receta: ${currentRecipe.name}`,75,y); pdf.text(`PT: ${currentRecipe.pt}`,220,y); y+=8; const hidden=document.querySelectorAll('.control-panel,.delete-btn,.topbar'); hidden.forEach(el=>el.style.display='none'); const canvas=await html2canvas(document.getElementById('mezclaDiariaTable'),{scale:1.5,useCORS:true}); hidden.forEach(el=>el.style.display=''); const img=canvas.toDataURL('image/png'); const imgWidth=270; const imgHeight=(canvas.height*imgWidth)/canvas.width; pdf.addImage(img,'PNG',10,y,imgWidth,imgHeight); pdf.save(`reporte-${currentRecipe.pt}-${document.getElementById('fecha').value}.pdf`); } catch(err){ alert('❌ Error al generar PDF: '+err.message); } finally { boton.disabled=false; boton.textContent='📄 Descargar Reporte PDF'; } }
-
-    function pedirPasswordAdmin() { const modal=document.getElementById('adminLoginModal'); const input=document.getElementById('adminPasswordInput'); modal.style.display='block'; input.value=''; setTimeout(()=>input.focus(),100); }
-    function validarPasswordAdmin() {
-      const pass = document.getElementById('adminPasswordInput').value.trim();
-      if (pass === ADMIN_PASSWORD) {
-        cerrarAdminLogin();
-        abrirAdmin();
-      } else {
-        alert('Contraseña incorrecta');
+      try {
+        await setDoc(doc(recetasCol, data.pt), data);
+        alert('Receta guardada/actualizada');
+        adminModal.style.display = 'none';
+        clearAdminForm();
+      } catch (error) {
+        console.error(error);
+        alert('Error al guardar la receta');
       }
-    }
-    function cerrarAdminLogin() { document.getElementById('adminLoginModal').style.display='none'; }
-    function abrirAdmin() { renderRecipeListAdmin(); limpiarEditorReceta(); document.getElementById('adminModal').style.display='block'; }
-    function cerrarAdmin() { document.getElementById('adminModal').style.display='none'; }
-    function cerrarHistorial() { document.getElementById('historialModal').style.display='none'; }
-    window.pedirPasswordAdmin=pedirPasswordAdmin; window.validarPasswordAdmin=validarPasswordAdmin; window.cerrarAdminLogin=cerrarAdminLogin; window.cerrarAdmin=cerrarAdmin; window.cerrarHistorial=cerrarHistorial;
+    });
 
-    function renderRecipeListAdmin() { const cont=document.getElementById('recipeListAdmin'); cont.innerHTML=''; obtenerRecetas().forEach(r => { const div=document.createElement('div'); div.className='recipe-edit-item'; div.innerHTML=`<h4>${escapeHtml(r.name)}</h4><p><strong>PT:</strong> ${escapeHtml(r.pt)} | <strong>MP:</strong> ${obtenerMpsValidas(r).length} | <strong>Fécula:</strong> ${escapeHtml(r.fecula?.porcentaje ?? 0)}%</p>`; div.onclick=()=>cargarRecetaEnEditor(r.id); cont.appendChild(div); }); }
-    function construirEditorMP() { const cont=document.getElementById('mpEditorRows'); cont.innerHTML=''; for (let i=1;i<=4;i++) { const div=document.createElement('div'); div.className='mp-row'; div.innerHTML=`<strong>MP${i}</strong><label>Nombre<input type="text" id="mp${i}Nombre" placeholder="Ej. WholeMilk"></label><label>Código<input type="text" id="mp${i}Codigo" placeholder="Ej. 12"></label><label>% receta<input type="number" step="0.01" min="0" max="100" id="mp${i}Porcentaje" placeholder="Ej. 50"></label>`; cont.appendChild(div); } }
-    function limpiarEditorReceta() { document.getElementById('editorTitle').textContent='Nueva receta'; document.getElementById('editRecipeId').value=''; document.getElementById('editRecipeName').value=''; document.getElementById('editRecipePT').value=''; document.getElementById('editFeculaPorcentaje').value=''; for (let i=1;i<=4;i++) { document.getElementById(`mp${i}Nombre`).value=''; document.getElementById(`mp${i}Codigo`).value=''; document.getElementById(`mp${i}Porcentaje`).value=''; } }
-    function cargarRecetaEnEditor(id) { const r=obtenerRecetas().find(x=>x.id===id); if (!r) return; document.getElementById('editorTitle').textContent='Editar receta'; document.getElementById('editRecipeId').value=r.id; document.getElementById('editRecipeName').value=r.name; document.getElementById('editRecipePT').value=r.pt; document.getElementById('editFeculaPorcentaje').value=r.fecula?.porcentaje ?? ''; for (let i=1;i<=4;i++) { const mp=(r.materiasPrimas||[])[i-1]||{}; document.getElementById(`mp${i}Nombre`).value=mp.nombre||''; document.getElementById(`mp${i}Codigo`).value=mp.codigo||''; document.getElementById(`mp${i}Porcentaje`).value=mp.porcentaje ?? ''; } }
-    function guardarRecetaDesdeEditor() { const name=document.getElementById('editRecipeName').value.trim(); const pt=document.getElementById('editRecipePT').value.trim(); const feculaPorcentaje=parseFloat(document.getElementById('editFeculaPorcentaje').value || 0); if (!name || !pt) { alert('Capture nombre de receta y PT.'); return; } const materiasPrimas=[]; for (let i=1;i<=4;i++) { const nombre=document.getElementById(`mp${i}Nombre`).value.trim(); const codigo=document.getElementById(`mp${i}Codigo`).value.trim(); const porcentaje=document.getElementById(`mp${i}Porcentaje`).value; if (nombre) materiasPrimas.push({ mp:`MP${materiasPrimas.length+1}`, codigo, nombre:nombre.replace(/\s+/g,''), porcentaje:parseFloat(porcentaje || 0) }); } if (!materiasPrimas.length) { alert('Capture al menos una materia prima.'); return; } const idActual=document.getElementById('editRecipeId').value; const recetas=obtenerRecetas(); const nueva={ id:idActual || crearIdReceta(name, pt), name, pt, materiasPrimas, fecula:{ nombre:'Fecula', porcentaje:feculaPorcentaje } }; const idx=recetas.findIndex(r=>r.id===idActual); if (idx>=0) recetas[idx]=nueva; else recetas.push(nueva); guardarRecetas(recetas); document.getElementById('editRecipeId').value=nueva.id; alert('✅ Receta guardada y cargada a la lista desplegable.'); }
-    function eliminarRecetaDesdeEditor() {
-      const id = document.getElementById('editRecipeId').value;
-      if (!id) { alert('Seleccione primero una receta guardada para eliminar.'); return; }
-
-      const recetas = obtenerRecetas();
-      if (recetas.length <= 1) { alert('Debe existir al menos una receta.'); return; }
-
-      const nombre = (recetas.find(r => r.id === id) || {}).name || 'esta receta';
-      if (!confirm(`¿Desea eliminar ${nombre}? Los reportes históricos asociados podrían no abrir si se elimina.`)) return;
-
-      const restantes = recetas.filter(r => r.id !== id);
-      guardarRecetas(restantes);
-      limpiarEditorReceta();
-      renderRecipeListAdmin();
-      renderRecipeSelectors();
-
-      const siguiente = restantes[0] || null;
-      if (currentRecipeId === id) {
-        currentRecipeId = siguiente ? siguiente.id : null;
-        currentRecipe = siguiente;
-        if (siguiente) {
-          document.getElementById('activeRecipeSelector').value = siguiente.id;
-          aplicarReceta(siguiente, []);
-        } else {
-          volverSelector();
-        }
+    // Eliminar receta de Firestore
+    document.getElementById('deleteRecipeBtn').addEventListener('click', async () => {
+      const pt = ptCodeInput.value.trim();
+      if (!pt) {
+        alert('Ingrese el código PT de la receta a eliminar');
+        return;
       }
+      try {
+        await deleteDoc(doc(recetasCol, pt));
+        alert('Receta eliminada');
+        adminModal.style.display = 'none';
+        clearAdminForm();
+      } catch (error) {
+        console.error(error);
+        alert('Error al eliminar la receta');
+      }
+    });
 
-      document.getElementById('recipeSelector').value = siguiente ? siguiente.id : '';
-      alert('✅ Receta eliminada correctamente.');
-    }
+    // Cargar la receta al cambiar de opción
+    recipeList.addEventListener('change', (e) => {
+      const option = e.target.selectedOptions[0];
+      if (option) {
+        const data = JSON.parse(option.dataset.recipe);
+        loadRecipeToTable(data);
+      }
+    });
 
-    function exportarRecetasJSON() {
-      const recetas = obtenerRecetas();
-      const respaldo = {
-        tipo: 'sistema_verificacion_mezclas_recetas',
-        version: 1,
-        fechaExportacion: new Date().toISOString(),
-        recetas: recetas
-      };
-      const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const fecha = new Date().toISOString().slice(0,10);
-      a.href = url;
-      a.download = `recetas_mezclas_backup_${fecha}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      alert('📤 Recetas exportadas correctamente.');
-    }
-
-    function importarRecetasJSON(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const contenido = JSON.parse(e.target.result);
-          const recetasImportadas = Array.isArray(contenido) ? contenido : contenido.recetas;
-
-          if (!Array.isArray(recetasImportadas) || recetasImportadas.length === 0) {
-            alert('El archivo no contiene recetas válidas.');
-            event.target.value = '';
-            return;
-          }
-
-          const normalizadas = recetasImportadas.map(normalizarReceta).filter(r => r.name && r.pt && obtenerMpsValidas(r).length > 0);
-          if (normalizadas.length === 0) {
-            alert('No se encontraron recetas válidas para importar.');
-            event.target.value = '';
-            return;
-          }
-
-          const modo = confirm('¿Desea REEMPLAZAR todas las recetas actuales?\n\nAceptar = reemplazar todo\nCancelar = agregar/actualizar sin borrar las existentes');
-          let recetasFinales;
-
-          if (modo) {
-            recetasFinales = normalizadas;
-          } else {
-            const actuales = obtenerRecetas();
-            const mapa = new Map(actuales.map(r => [r.id, r]));
-            normalizadas.forEach(r => mapa.set(r.id || crearIdReceta(r.name, r.pt), r));
-            recetasFinales = Array.from(mapa.values());
-          }
-
-          guardarRecetas(recetasFinales);
-          limpiarEditorReceta();
-          renderRecipeListAdmin();
-          llenarSelectoresReceta();
-
-          if (currentRecipeId && !recetasFinales.some(r => r.id === currentRecipeId)) {
-            currentRecipe = recetasFinales[0] || null;
-            currentRecipeId = currentRecipe ? currentRecipe.id : null;
-            if (currentRecipe) aplicarReceta(currentRecipe, []);
-          }
-
-          alert(`📥 Importación completada. Recetas cargadas: ${normalizadas.length}`);
-        } catch (err) {
-          alert('No se pudo importar el archivo JSON. Revise que sea un respaldo válido de recetas.');
-        } finally {
-          event.target.value = '';
-        }
-      };
-      reader.readAsText(file, 'UTF-8');
-    }
-
-    function crearIdReceta(name, pt) { return `${pt}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${Date.now()}`; }
-    window.eliminarFila = function(btn) { if (confirm('¿Desea eliminar esta fila?')) { btn.closest('tr').remove(); guardarDatosAutomatico(); } };
-    function debounce(func, wait) { let timeout; return function(...args) { clearTimeout(timeout); timeout=setTimeout(()=>func.apply(this,args), wait); }; }
-    function escapeHtml(str) { return String(str ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[ch])); }
+    // Inicializar el listener de recetas al cargar la página
+    initializeRecipeListener();
   </script>
 </body>
 </html>
